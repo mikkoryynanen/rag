@@ -9,3 +9,13 @@ CREATE TABLE IF NOT EXISTS ingest_jobs (
     status     SMALLINT NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE IF NOT EXISTS chunks (
+    id          BIGSERIAL PRIMARY KEY,
+    job_id      BIGINT NOT NULL REFERENCES ingest_jobs(id),
+    chunk_index INT NOT NULL,
+    content     TEXT NOT NULL,
+    embedding   vector(384) NOT NULL
+);

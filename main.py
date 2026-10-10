@@ -4,10 +4,12 @@ import shutil
 from pathlib import Path
 from uuid import uuid4
 from fastapi import FastAPI, UploadFile, Depends
-from src.chunker.services.database.database import pool, get_conn, insert_ingest_job
+from src.services.database.database import pool, get_conn, insert_ingest_job, insert_chunks
 from psycopg import Connection
 import threading
-from src.chunker.chunker import process_docs
+from src.chunker.chunker import chunk_document
+
+from sentence_transformers import SentenceTransformer
 
 UPLOAD_DIR = Path("data/uploads")
 SCHEMA_FILE = Path("schema.sql")
@@ -33,6 +35,7 @@ app = FastAPI(lifespan=lifespan)
 
 Db = Annotated[Connection, Depends(get_conn)]
 
+# TODO seperate to its own process
 def worker_loop():
     while not stop.is_set():
         with pool.connection() as conn:
@@ -52,7 +55,13 @@ def worker_loop():
 
                 job_id, path = job
 
-                process_docs(path)
+                docs = chunk_document(path)
+                texts = [chunk.text for doc in docs for chunk in doc.chunks]
+
+                model = SentenceTransformer("BAAI/bge-small-en-v1.5")
+                vectors = model.encode(texts, normalize_embeddings=True)
+
+                insert_chunks(conn, job_id, texts, vectors)
 
                 conn.execute(f"UPDATE ingest_jobs SET status=1 WHERE id={job_id}")
 
