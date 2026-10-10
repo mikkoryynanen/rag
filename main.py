@@ -10,12 +10,18 @@ import threading
 from src.chunker.chunker import process_docs
 
 UPLOAD_DIR = Path("data/uploads")
+SCHEMA_FILE = Path("schema.sql")
 
 stop = threading.Event()
+
+def init_db():
+    with pool.connection() as conn:
+        conn.execute(SCHEMA_FILE.read_text())
 
 @asynccontextmanager
 async def lifespan(app):
     pool.open()
+    init_db()
     worker = threading.Thread(target=worker_loop)
     worker.start()
     yield
