@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDF to Chunks</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+  <p class="eyebrow">Milestone 1, naive RAG · Lesson 2 of 5</p>
+  <h1>From PDF to chunks</h1>
+  <p class="lede">Your upload endpoint leaves a PDF on disk and a queued job in Postgres. This lesson fills in the first half of what the worker does with it: get the text out, and cut it into pieces the embedding model can read whole.</p>
+
+  <h2>Where this sits</h2>
+  <p>Ingestion is four steps. Today is the first two. Lesson 3 does the rest.</p>
+  <ol class="pipeline wide" aria-label="The ingestion pipeline">
+    <li>PDF file</li>
+    <li aria-current="step">Extract text</li>
+    <li aria-current="step">Split into chunks</li>
+    <li>Embed each chunk</li>
+    <li>Store in pgvector</li>
+  </ol>
+
+  <h2>1. Extract the text</h2>
+  <p>A PDF describes where ink goes on a page. It does not say what is a heading, a paragraph or a table cell. The pypdf docs put it plainly: "PDF files don't contain a semantic layer", and "tables are just absolutely positioned text." <a class="cite" href="https://pypdf.readthedocs.io/en/stable/user/extract-text.html">[pypdf docs]</a></p>
+  <p>The basic call, from those docs:</p>
+<pre><code>from pypdf import PdfReader
+
+reader = PdfReader("data/invoices/invoice-0001.pdf")
+text = reader.pages[0].extract_text()</code></pre>
+  <p>Here is what the items table of your sample invoice becomes:</p>
+<pre class="output"># Description Qty Unit Unit price VAT % Net (EUR)
+1 Full truckload Oulu-München, 13.6 m curtain-sider 1 pcs 3,150.00 0 3,150.00</pre>
+  <p>The columns are gone. Nothing ties <code>3,150.00</code> to "Unit price" except its position in the line. Whatever reads this later, the embedding model and then the language model, has to work that out from order alone. Keep this in mind when an answer gets a number wrong.</p>
+  <p class="note">pypdf also has a layout mode that keeps horizontal positions, and it cannot read scanned images at all. Your generated invoices contain real text, so plain extraction works. <a href="https://pypdf.readthedocs.io/en/stable/user/extract-text.html">[pypdf docs]</a></p>
+
+  <h2>2. Tokens are not words</h2>
+  <p>You know what a token is. What matters here is how many your text turns into, because the model's limit is counted in tokens. I ran your sample invoice through the tokenizer of <code>bge-small-en-v1.5</code>:</p>
+  <div class="table-scroll">
+    <table>
+      <tbody>
+        <tr><td>Characters</td><td class="num">1,197</td></tr>
+        <tr><td>Words</td><td class="num">186</td></tr>
+        <tr><td>Tokens</td><td class="num">358</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>That is almost two tokens per word, well above what ordinary English prose gives, because invoices are full of numbers and names. Look at what happens to a few of them:</p>
+<pre class="output">Invoice number 202501321  →  in ##vo ##ice  number  202 ##50 ##13 ##21
+IBAN FI47 5839            →  ib ##an  fi ##47  58 ##39
+Mäkelä                    →  make ##la</pre>
+  <p>Three things to notice. The invoice number is four fragments, none of which means anything alone. Everything is lowercased. Accents are dropped. This is the root of a weakness you will measure in milestone 4: embeddings are poor at matching exact identifiers.</p>
+  <p>To count tokens yourself, use the model's own tokenizer, which the loaded model exposes as its <code>tokenizer</code> property <a class="cite" href="https://sbert.net/docs/package_reference/sentence_transformer/SentenceTransformer.html">[Sentence-Transformers docs]</a>:</p>
+<pre><code>ids = model.tokenizer(text, add_special_tokens=False)["input_ids"]
+print(len(ids))</code></pre>
+
+  <h2>3. Why you have to chunk</h2>
+  <p>The model reads at most 512 tokens <a class="cite" href="https://huggingface.co/BAAI/bge-small-en-v1.5">[model card]</a>. On what happens past that, the library's docs are one sentence long: "Longer inputs will be truncated." <a class="cite" href="https://sbert.net/docs/package_reference/sentence_transformer/SentenceTransformer.html">[Sentence-Transformers docs]</a></p>
+  <p>There is no error and no warning. Hand it an 800-token invoice and you get back a normal-looking vector that describes only the first 512 tokens. The payment details at the bottom would be invisible to search, and nothing would tell you.</p>
+  <p>So you split the text first. Your curriculum says fixed chunks of 500 tokens. The gap below 512 is deliberate: the tokenizer wraps every input in two marker tokens of its own, and they count towards the limit.</p>
+
+  <h3>The fixed-size idea</h3>
+  <ol>
+    <li>Tokenize the whole document once, without the marker tokens.</li>
+    <li>Walk through the token list in windows of 500.</li>
+    <li>Turn each window back into a piece of text. That piece is a chunk.</li>
+  </ol>
+  <p>Step 3 has a trap. The tokenizer can turn token IDs back into text, but you saw above what tokenizing does: you would store "make la" and "202 50 13 21"-style lowercase text, not the original. Before you write it, look at what the tokenizer returns when you ask for <code>return_offsets_mapping=True</code>, and think about how that lets you cut the <em>original</em> string instead.</p>
+
+  <h2>Your turn</h2>
+  <p>About 45 minutes. Write one function that takes a PDF path and returns a list of chunk strings. This is the first half of the <code>ingest_file</code> function your worker calls.</p>
+  <ol class="steps">
+    <li><strong>Add pypdf</strong> to the project with <code>uv add pypdf</code>.</li>
+    <li><strong>Extract.</strong> Get the text of <code>invoice-0001.pdf</code> and print it. Compare it with the PDF on screen. What moved, and what was lost?</li>
+    <li><strong>Count.</strong> Tokenize it and check you get 358. If not, find out why before going on.</li>
+    <li><strong>Chunk.</strong> Split into chunks of at most 500 tokens, keeping the original text. Handle documents with more than one page.</li>
+    <li><strong>Stress it.</strong> Generate 50 invoices and run your function over all of them. Print the token count of every chunk.</li>
+  </ol>
+  <div class="check">
+    <strong>You're done when</strong> no chunk is over 500 tokens, joining an invoice's chunks gives back its full extracted text, and you can tell me (a) the largest token count among the 50 invoices, (b) how many invoices needed more than one chunk, and (c) where a split landed in one of those and whether that is a good place to cut.
+  </div>
+  <p>Answer (b) will tell you something about whether fixed 500-token chunks suit this corpus. Hold that thought for milestone 3.</p>
+
+  <h2>Check yourself</h2>
+  <p>After the task, from memory.</p>
+
+  <fieldset class="quiz" data-correct="b">
+    <legend>You embed a text that is longer than the model's maximum sequence length. The extra text is:</legend>
+    <div class="options">
+      <button type="button" data-key="a">rejected with an error</button>
+      <button type="button" data-key="b">truncated without any warning</button>
+      <button type="button" data-key="c">split into several vectors</button>
+      <button type="button" data-key="d">summarised before being embedded</button>
+    </div>
+    <p class="explain" hidden>"Longer inputs will be truncated." You get a normal vector for the first part only.</p>
+  </fieldset>
+
+  <fieldset class="quiz" data-correct="c">
+    <legend>The sample invoice has 186 words. How many tokens did it come to?</legend>
+    <div class="options">
+      <button type="button" data-key="a">about 140</button>
+      <button type="button" data-key="b">about 190</button>
+      <button type="button" data-key="c">about 360</button>
+      <button type="button" data-key="d">about 720</button>
+    </div>
+    <p class="explain" hidden>358. Numbers, IDs and names break into several tokens each, so invoices run near two tokens per word.</p>
+  </fieldset>
+
+  <fieldset class="quiz" data-correct="a">
+    <legend>Plain text extraction with pypdf gives you a table row as:</legend>
+    <div class="options">
+      <button type="button" data-key="a">one flattened text line</button>
+      <button type="button" data-key="b">a list of cells</button>
+      <button type="button" data-key="c">a small dictionary object</button>
+      <button type="button" data-key="d">an HTML table fragment</button>
+    </div>
+    <p class="explain" hidden>A PDF has no table structure to return, only positioned text.</p>
+  </fieldset>
+
+  <fieldset class="quiz" data-correct="d">
+    <legend>The model's limit is 512 tokens. Why chunk at 500?</legend>
+    <div class="options">
+      <button type="button" data-key="a">pgvector caps row size</button>
+      <button type="button" data-key="b">Ollama needs spare room</button>
+      <button type="button" data-key="c">PDF pages hold less</button>
+      <button type="button" data-key="d">the tokenizer adds markers</button>
+    </div>
+    <p class="explain" hidden>Two marker tokens are added around every input and count towards the 512.</p>
+  </fieldset>
+
+  <p class="quiz-score" data-quiz-score aria-live="polite"></p>
+
+  <h2>Read this</h2>
+  <p><a href="https://pypdf.readthedocs.io/en/stable/user/extract-text.html">pypdf documentation, "Extract Text from a PDF"</a>. Read the section on why text extraction is hard. It is short, written by the library's maintainers, and explains most of the odd output you will see from real-world PDFs.</p>
+
+  <h2>Ask me</h2>
+  <p>I'm your teacher for this course. Ask in the terminal whenever something here is unclear, and show me your function when it works, with your three answers. I'll review it. Lesson 3 takes the chunks, embeds them and stores them in pgvector, which completes <code>ingest_file</code>.</p>
+
+  <footer>
+    Previous: <a href="0001-cosine-similarity.html">Lesson 1: Cosine similarity</a> · Quick reference: <a href="../reference/similarity-cheatsheet.html">Similarity cheat sheet</a>
+  </footer>
+</main>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Similarity Cheat Sheet</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+  <p class="eyebrow">Reference</p>
+  <h1>Similarity cheat sheet</h1>
+  <p class="lede">How two embedding vectors are compared, and which numbers to trust.</p>
+
+  <h2>Cosine similarity</h2>
+  <div class="formula" role="math" aria-label="cosine similarity of a and b equals a dot b, divided by the length of a times the length of b">
+    <span>cos(<span class="va">a</span>, <span class="vb">b</span>) =</span>
+    <span class="frac"><span><span class="va">a</span> · <span class="vb">b</span></span><span>‖<span class="va">a</span>‖ ‖<span class="vb">b</span>‖</span></span>
+  </div>
+  <p>Dot product: sum of the products of matching components. Length ‖a‖: square root of a · a. <a class="cite" href="https://nlp.stanford.edu/IR-book/html/htmledition/dot-products-1.html">[Manning et al., §6.3.1]</a></p>
+
+  <h2>The measures</h2>
+  <div class="table-scroll wide">
+    <table>
+      <thead><tr><th>Measure</th><th>Range</th><th>Better is</th><th>Sensitive to length</th></tr></thead>
+      <tbody>
+        <tr><td>Cosine similarity</td><td class="num">−1 to 1</td><td>higher</td><td>no</td></tr>
+        <tr><td>Cosine distance (1 − cosine similarity)</td><td class="num">0 to 2</td><td>lower</td><td>no</td></tr>
+        <tr><td>Dot product</td><td class="num">unbounded</td><td>higher</td><td>yes</td></tr>
+        <tr><td>Euclidean (L2) distance</td><td class="num">0 and up</td><td>lower</td><td>yes</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>When every vector has length 1</h2>
+  <ul>
+    <li>Dot product = cosine similarity. <a class="cite" href="https://sbert.net/docs/sentence_transformer/usage/semantic_textual_similarity.html">[Sentence-Transformers docs]</a></li>
+    <li>Euclidean distance² = 2 − 2 · cosine similarity.</li>
+    <li>All three give the same ranking, so use the cheapest. pgvector recommends inner product for normalised vectors. <a class="cite" href="https://github.com/pgvector/pgvector">[pgvector README]</a></li>
+  </ul>
+
+  <h2>Reading scores from bge-small-en-v1.5</h2>
+  <div class="table-scroll">
+    <table>
+      <tbody>
+        <tr><td>Dimensions</td><td class="num">384</td></tr>
+        <tr><td>Max input</td><td class="num">512 tokens</td></tr>
+        <tr><td>Typical score range</td><td class="num">about 0.6 to 1</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>A score above 0.5 does not mean two texts are similar. Compare scores with each other, and choose any cut-off from your own data. <a class="cite" href="https://huggingface.co/BAAI/bge-small-en-v1.5">[model card]</a></p>
+
+  <h2>pgvector distance operators</h2>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Operator</th><th>Returns</th></tr></thead>
+      <tbody>
+        <tr><td><code>&lt;=&gt;</code></td><td>cosine distance (similarity = 1 − this)</td></tr>
+        <tr><td><code>&lt;#&gt;</code></td><td>negative inner product</td></tr>
+        <tr><td><code>&lt;-&gt;</code></td><td>L2 distance</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">All three are distances: smaller means closer. <a href="https://github.com/pgvector/pgvector">[pgvector README]</a></p>
+
+  <footer>
+    From <a href="../lessons/0001-cosine-similarity.html">Lesson 1: Cosine similarity</a>
+  </footer>
+</main>
+</body>
+</html>

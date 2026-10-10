@@ -1,0 +1,24 @@
+# Runtime data (source docs, uploaded files)
+data/invoices/
+data/uploads/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Secrets
+.env
+
+# Local tooling
+.claude/settings.local.json
+# link to .agents/skills, git would store a duplicate copy
+.claude/skills/
+.idea/
+.vscode/

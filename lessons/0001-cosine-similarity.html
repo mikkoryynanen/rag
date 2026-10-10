@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cosine Similarity</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+  <p class="eyebrow">Milestone 1, naive RAG · Lesson 1 of 5</p>
+  <h1>Cosine similarity: how retrieval picks its top five</h1>
+  <p class="lede">You already know that an embedding turns text into a vector. This lesson covers the one operation your whole retriever rests on: scoring how close two of those vectors are.</p>
+
+  <h2>Where this sits</h2>
+  <p>Naive RAG is a short loop. A question comes in, you embed it, you compare it against every stored chunk, you keep the five best, and you hand those to the language model with the question. Everything in milestone 1 is plumbing around the highlighted step.</p>
+  <ol class="pipeline wide" aria-label="The retrieve-then-generate loop">
+    <li>Question</li>
+    <li>Embed it</li>
+    <li aria-current="step">Score against every chunk</li>
+    <li>Keep top 5</li>
+    <li>Build prompt</li>
+    <li>Generate answer</li>
+  </ol>
+  <p>If you can explain that step to an interviewer, including when its numbers mislead, you can explain why a RAG system retrieved what it did. That is most of debugging one.</p>
+
+  <h2>The idea</h2>
+  <p>Your model, <code>bge-small-en-v1.5</code>, maps any text to a list of 384 numbers <a class="cite" href="https://huggingface.co/BAAI/bge-small-en-v1.5">[model card]</a>. Treat that list as an arrow from the origin in 384-dimensional space. Texts with similar meaning get arrows pointing in similar directions.</p>
+  <p>Cosine similarity measures the angle between two arrows and ignores how long they are. It is the dot product divided by both lengths:</p>
+  <div class="formula" role="math" aria-label="cosine similarity of a and b equals a dot b, divided by the length of a times the length of b">
+    <span>cos(<span class="va">a</span>, <span class="vb">b</span>) =</span>
+    <span class="frac"><span><span class="va">a</span> · <span class="vb">b</span></span><span>‖<span class="va">a</span>‖ ‖<span class="vb">b</span>‖</span></span>
+  </div>
+  <p>The dot product is the sum of the products of matching components. The length ‖a‖ is the square root of a's dot product with itself. The result runs from 1 (same direction) through 0 (perpendicular) to −1 (opposite). <a class="cite" href="https://nlp.stanford.edu/IR-book/html/htmledition/dot-products-1.html">[Manning et al., §6.3.1]</a></p>
+
+  <h2>Try it in two dimensions</h2>
+  <p>The arithmetic is the same in 2 dimensions as in 384. Before each experiment, say your prediction out loud, then move the slider.</p>
+  <div class="vsim wide" data-vector-sim></div>
+  <ol class="steps">
+    <li><strong>Stretch B.</strong> Change only B's length. Which of the three "as given" numbers stays put?</li>
+    <li><strong>Make them perpendicular.</strong> Set the directions 90° apart. What do cosine and the dot product read, whatever the lengths?</li>
+    <li><strong>Compare the columns.</strong> In the "scaled to length 1" column, two rows always agree. Which two, and can you see why from the formula?</li>
+    <li><strong>Close the angle.</strong> Watch the length-1 column as the angle shrinks. Cosine goes up. What does the distance do?</li>
+  </ol>
+
+  <h2>Three things to take away</h2>
+  <h3>1. Length is thrown away</h3>
+  <p>Cosine compares direction only. The original reason in text retrieval: a long document and a short one about the same thing should still match, and dividing by the lengths removes the size effect. <a class="cite" href="https://nlp.stanford.edu/IR-book/html/htmledition/dot-products-1.html">[Manning et al., §6.3.1]</a></p>
+
+  <h3>2. On length-1 vectors, three measures agree</h3>
+  <p>If both vectors already have length 1 (they are <em>normalised</em>), the denominator is 1, so the dot product <em>is</em> the cosine similarity. <a class="cite" href="https://sbert.net/docs/sentence_transformer/usage/semantic_textual_similarity.html">[Sentence-Transformers docs]</a> Euclidean distance falls in line too, because for unit vectors distance² = 2 − 2·cos. Higher cosine always means smaller distance, so all three produce the same top five. This is why you will see people use whichever is cheapest.</p>
+
+  <h3>3. The score is a ranking, not a grade</h3>
+  <p>The BGE authors say their models' similarity scores sit roughly in the interval [0.6, 1], and that "a similarity score greater than 0.5 does not indicate that the two sentences are similar." What matters is "the relative order of the scores, not the absolute value." <a class="cite" href="https://huggingface.co/BAAI/bge-small-en-v1.5">[model card FAQ]</a> Keep this in mind for milestone 7, where you will need a threshold for refusing to answer.</p>
+
+  <p class="note">One trap for later: pgvector's cosine operator returns cosine <em>distance</em>, and "for cosine similarity, use 1 − cosine distance". <a href="https://github.com/pgvector/pgvector">[pgvector README]</a> Smaller is better there, larger is better here.</p>
+
+  <h2>Your turn: score real embeddings by hand</h2>
+  <p>About 30 minutes. You write all of it. I will review what you wrote, but I won't write it for you.</p>
+  <ol class="steps">
+    <li><strong>Pick your corpus.</strong> One open-source repo you know well, with code and docs. The test: could you tell a good answer about it from a bad one without looking anything up?</li>
+    <li><strong>Write four sentences.</strong> A question about that repo. A sentence that answers it using different words. A sentence on the same topic that does not answer it. A sentence about something unrelated, like cooking.</li>
+    <li><strong>Predict first.</strong> Write down the order you expect, and guess a score for the cooking sentence.</li>
+    <li><strong>Embed them.</strong> In a scratch file, load the model and encode the four sentences. The <a href="https://sbert.net/docs/quickstart.html">Sentence-Transformers quickstart</a> shows the two calls you need.</li>
+    <li><strong>Compute cosine similarity yourself.</strong> Score the question against each of the other three using only the formula above: a dot product and two lengths. NumPy's <a href="https://numpy.org/doc/stable/reference/generated/numpy.dot.html">dot</a> and <a href="https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html">linalg.norm</a> are all you need.</li>
+    <li><strong>Check against the library.</strong> Score the same pairs with the model's built-in <a href="https://sbert.net/docs/sentence_transformer/usage/semantic_textual_similarity.html">similarity</a> function.</li>
+    <li><strong>Measure the lengths.</strong> Print the length of each of the four vectors. What do you notice, and what part of your formula does that make redundant?</li>
+  </ol>
+  <div class="check">
+    <strong>You're done when</strong> your hand-computed scores match the library's to four decimal places, and you can tell me (a) whether your predicted order held, (b) the cooking sentence's score and why it isn't near zero, and (c) what the vector lengths were.
+  </div>
+
+  <h2>Check yourself</h2>
+  <p>Do the task first, then answer from memory. Scrolling up defeats the purpose.</p>
+
+  <fieldset class="quiz" data-correct="b">
+    <legend>You multiply every number in one chunk's vector by two. Its cosine similarity to the query:</legend>
+    <div class="options">
+      <button type="button" data-key="a">doubles along with it</button>
+      <button type="button" data-key="b">stays exactly the same</button>
+      <button type="button" data-key="c">drops by one half</button>
+      <button type="button" data-key="d">flips to its negative</button>
+    </div>
+    <p class="explain" hidden>Scaling changes length, not direction. The dot product doubles and so does the denominator.</p>
+  </fieldset>
+
+  <fieldset class="quiz" data-correct="c">
+    <legend>Two vectors both have length 1. Their dot product equals:</legend>
+    <div class="options">
+      <button type="button" data-key="a">their Euclidean distance</button>
+      <button type="button" data-key="b">their combined magnitude</button>
+      <button type="button" data-key="c">their cosine similarity</button>
+      <button type="button" data-key="d">their squared distance</button>
+    </div>
+    <p class="explain" hidden>The denominator ‖a‖‖b‖ is 1, so only the dot product is left.</p>
+  </fieldset>
+
+  <fieldset class="quiz" data-correct="d">
+    <legend>With a BGE model, an off-topic chunk scores 0.62 against your question. The best reading is:</legend>
+    <div class="options">
+      <button type="button" data-key="a">moderately relevant, keep it</button>
+      <button type="button" data-key="b">model is clearly broken</button>
+      <button type="button" data-key="c">embeddings need renormalising first</button>
+      <button type="button" data-key="d">meaningless alone, compare ranks</button>
+    </div>
+    <p class="explain" hidden>BGE scores cluster in roughly [0.6, 1]. Only the order relative to other chunks tells you anything.</p>
+  </fieldset>
+
+  <fieldset class="quiz" data-correct="a">
+    <legend>pgvector's cosine operator returns 0.20 for a chunk. Its cosine similarity to the query is:</legend>
+    <div class="options">
+      <button type="button" data-key="a">0.80</button>
+      <button type="button" data-key="b">0.20</button>
+      <button type="button" data-key="c">1.20</button>
+      <button type="button" data-key="d">0.04</button>
+    </div>
+    <p class="explain" hidden>The operator returns distance. Similarity is 1 minus that.</p>
+  </fieldset>
+
+  <fieldset class="quiz" data-correct="c">
+    <legend>All your vectors have length 1. Ranking chunks by smallest Euclidean distance instead of highest cosine gives:</legend>
+    <div class="options">
+      <button type="button" data-key="a">a reversed top five</button>
+      <button type="button" data-key="b">an unrelated top five</button>
+      <button type="button" data-key="c">the same top five</button>
+      <button type="button" data-key="d">a shuffled top five</button>
+    </div>
+    <p class="explain" hidden>For unit vectors, distance² = 2 − 2·cos, so higher cosine always means smaller distance.</p>
+  </fieldset>
+
+  <p class="quiz-score" data-quiz-score aria-live="polite"></p>
+
+  <h2>Read this</h2>
+  <p><a href="https://nlp.stanford.edu/IR-book/html/htmledition/dot-products-1.html">Manning, Raghavan and Schütze, <em>Introduction to Information Retrieval</em>, section 6.3.1, "Dot products"</a>. One page from the standard textbook, free online. It derives the formula above and works an example on three novels. Its vectors are word counts, not neural embeddings, but the geometry is identical.</p>
+
+  <h2>Ask me</h2>
+  <p>I'm your teacher for this course. If the formula, the playground or the task leaves anything unclear, ask in the terminal. When your scratch file works, show it to me and tell me your three answers from the done-when box. Next is <a href="0002-pdf-to-chunks.html">lesson 2: from PDF to chunks</a>.</p>
+
+  <footer>
+    Quick reference: <a href="../reference/similarity-cheatsheet.html">Similarity cheat sheet</a> · Course plan: <a href="../CURRICULUM.md">CURRICULUM.md</a>
+  </footer>
+</main>
+<script src="../assets/vector-sim.js"></script>
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

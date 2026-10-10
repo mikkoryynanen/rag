@@ -1,0 +1,131 @@
+/* Shared stylesheet for every lesson and reference page.
+   Layout: one reading column at a 34rem measure; figures and tables may run wider. */
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap");
+
+:root {
+  --paper: #fbfcfd;
+  --wash: #eef3f6;
+  --ink: #16202a;
+  --muted: #5b6875;
+  --rule: #d5dce3;
+  --a: #0b6e8f;      /* vector A, links */
+  --b: #a8326b;      /* vector B */
+  --good: #1f7a4d;
+  --bad: #b3261e;
+
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", Consolas, "Courier New", monospace;
+
+  --measure: 34rem;
+  --wide: 46rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #10161c; --wash: #18212a; --ink: #e4eaf0; --muted: #95a3b0; --rule: #2a3540;
+    --a: #5cc1e0; --b: #ef86b4; --good: #5fcf96; --bad: #f08a80;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #10161c; --wash: #18212a; --ink: #e4eaf0; --muted: #95a3b0; --rule: #2a3540;
+  --a: #5cc1e0; --b: #ef86b4; --good: #5fcf96; --bad: #f08a80;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding-block: 3rem 5rem;
+  padding-inline: 1.25rem;
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 1.125rem/1.6 var(--serif);
+}
+main { max-width: var(--wide); margin-inline: auto; }
+main > * { max-width: var(--measure); }
+main > .wide { max-width: 100%; }
+
+h1, h2, h3 { font-family: var(--serif); font-weight: 600; line-height: 1.2; text-wrap: balance; margin: 0; }
+h1 { font-size: 2.25rem; letter-spacing: -0.01em; }
+h2 { font-size: 1.4rem; margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--rule); }
+h3 { font-size: 1.1rem; margin-top: 1.75rem; }
+p, ul, ol { margin: 0.9rem 0 0; }
+li + li { margin-top: 0.4rem; }
+a { color: var(--a); text-underline-offset: 0.15em; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--a); outline-offset: 2px; }
+strong { font-weight: 600; }
+code, .num { font-family: var(--mono); font-size: 0.9em; font-variant-numeric: tabular-nums; }
+
+.eyebrow { font: 500 0.78rem/1.4 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 0.6rem; }
+.lede { font-size: 1.25rem; color: var(--muted); }
+.note { font: 400 0.9rem/1.5 var(--sans); color: var(--muted); }
+.cite { font: 400 0.85rem/1.4 var(--sans); }
+
+/* Pipeline strip: where today's step sits in the whole loop */
+.pipeline { display: flex; flex-wrap: wrap; gap: 0.4rem; list-style: none; padding: 0; margin-top: 1.25rem; font: 500 0.85rem/1.3 var(--sans); }
+.pipeline li { margin: 0; padding: 0.45rem 0.7rem; border: 1px solid var(--rule); color: var(--muted); }
+.pipeline li[aria-current] { background: var(--a); border-color: var(--a); color: var(--paper); }
+
+/* Formula */
+.formula { margin-top: 1.25rem; padding: 1rem 1.25rem; background: var(--wash); font-family: var(--mono); font-size: 1rem; display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.frac { display: inline-flex; flex-direction: column; text-align: center; }
+.frac > span:first-child { border-bottom: 1px solid var(--ink); padding: 0 0.4rem 0.15rem; }
+.frac > span:last-child { padding: 0.15rem 0.4rem 0; }
+.va { color: var(--a); font-weight: 500; }
+.vb { color: var(--b); font-weight: 500; }
+
+/* Code and raw output samples */
+pre { margin: 1.25rem 0 0; padding: 0.9rem 1.1rem; background: var(--wash); overflow-x: auto; font: 400 0.85rem/1.55 var(--mono); }
+pre code { font-size: inherit; }
+pre.output { border-left: 3px solid var(--muted); color: var(--muted); }
+
+/* Tables */
+.table-scroll { overflow-x: auto; margin-top: 1.25rem; }
+table { border-collapse: collapse; width: 100%; font: 400 0.92rem/1.4 var(--sans); }
+th, td { text-align: left; padding: 0.5rem 0.9rem 0.5rem 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; }
+td.num, th.num { text-align: right; padding-right: 0; padding-left: 0.9rem; }
+
+/* Vector playground (assets/vector-sim.js) */
+.vsim { display: grid; grid-template-columns: minmax(0, 20rem) minmax(0, 1fr); gap: 1.5rem 2rem; align-items: start; margin-top: 1.5rem; }
+@media (max-width: 40rem) { .vsim { grid-template-columns: minmax(0, 1fr); } }
+.vsim svg { width: 100%; height: auto; background: var(--wash); display: block; }
+.vsim .axis { stroke: var(--rule); stroke-width: 0.01; }
+.vsim .unit { fill: none; stroke: var(--muted); stroke-width: 0.012; stroke-dasharray: 0.05 0.05; }
+.vsim .vec-a { stroke: var(--a); fill: var(--a); }
+.vsim .vec-b { stroke: var(--b); fill: var(--b); }
+.vsim line.vec-a, .vsim line.vec-b { stroke-width: 0.035; }
+.vsim .ghost { fill: var(--paper); stroke-width: 0.025; }
+.vsim-panel { display: grid; gap: 0.9rem; min-width: 0; font-family: var(--sans); font-size: 0.9rem; }
+.vsim-panel label { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr) 3rem; gap: 0.6rem; align-items: center; }
+.vsim-panel input[type="range"] { width: 100%; accent-color: var(--a); }
+.vsim-panel label.is-b input[type="range"] { accent-color: var(--b); }
+.vsim-panel output { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+
+/* Quiz (assets/quiz.js) */
+.quiz { border: 0; padding: 0; margin: 1.75rem 0 0; min-width: 0; }
+.quiz legend { padding: 0; font-weight: 600; }
+.quiz .options { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0.5rem; margin-top: 0.75rem; }
+.quiz button { font: 400 0.95rem/1.3 var(--sans); text-align: left; padding: 0.65rem 0.8rem; background: var(--paper); color: var(--ink); border: 1px solid var(--rule); cursor: pointer; }
+.quiz button:hover:not(:disabled) { border-color: var(--ink); }
+.quiz button:disabled { cursor: default; color: var(--muted); }
+.quiz button.is-correct { border-color: var(--good); color: var(--good); font-weight: 600; }
+.quiz button.is-wrong { border-color: var(--bad); color: var(--bad); text-decoration: line-through; }
+.quiz .explain { font: 400 0.92rem/1.5 var(--sans); color: var(--muted); }
+.quiz-score { font: 600 1rem/1.4 var(--sans); margin-top: 1.5rem; }
+
+/* Task steps */
+.steps { padding-left: 1.3rem; }
+.steps li { padding-left: 0.3rem; }
+.steps li + li { margin-top: 0.9rem; }
+.check { margin-top: 1.25rem; padding: 0.9rem 1.1rem; border-left: 3px solid var(--good); background: var(--wash); font: 400 0.95rem/1.5 var(--sans); }
+
+footer { margin-top: 3.5rem; padding-top: 1rem; border-top: 1px solid var(--rule); font: 400 0.9rem/1.5 var(--sans); color: var(--muted); }
+
+@media print {
+  body { padding-block: 0; font-size: 10.5pt; background: #fff; color: #000; }
+  h2 { break-after: avoid; margin-top: 1.5rem; }
+  table, .formula { break-inside: avoid; }
+  a { color: inherit; }
+}

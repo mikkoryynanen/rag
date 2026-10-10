@@ -1,0 +1,24 @@
+# Backend infrastructure for the RAG project.
+#   docker compose up -d      start
+#   docker compose down       stop (data is kept in the pgdata volume)
+#   docker compose down -v    stop and delete the data
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: rag_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: rag
+    ports:
+      - "127.0.0.1:5432:5432" # reachable from this machine only
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rag"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
